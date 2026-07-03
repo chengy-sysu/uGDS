@@ -1,0 +1,31 @@
+From: Guanyi Chen <felixlinker02@gmail.com>
+Subject: [PATCH 3/3] amdgpu: accept VRAM buffers in dma_buf_map
+
+After pinning buffers to VRAM (patch 2/3), the buffer's mem_type
+becomes TTM_PL_VRAM. The original map function only accepts
+TTM_PL_TT and returns -EBUSY for anything else, which rejects
+VRAM-pinned buffers.
+
+Extend the condition to accept both TTM_PL_TT and TTM_PL_VRAM.
+When mem_type is TTM_PL_VRAM, the existing code path calls
+amdgpu_vram_mgr_alloc_sgt() which generates an sg_table with DMA
+addresses based on the GPU BAR physical address.
+
+Signed-off-by: Guanyi Chen <felixlinker02@gmail.com>
+---
+ amd/amdgpu/amdgpu_dma_buf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/amd/amdgpu/amdgpu_dma_buf.c b/amd/amdgpu/amdgpu_dma_buf.c
+index abcdef1..1234567 100644
+--- a/amd/amdgpu/amdgpu_dma_buf.c
++++ b/amd/amdgpu/amdgpu_dma_buf.c
+@@ -316,7 +316,7 @@
+ 		if (r)
+ 			return ERR_PTR(r);
+ 
+-	} else if (bo->tbo.resource->mem_type != TTM_PL_TT) {
++	} else if (bo->tbo.resource->mem_type != TTM_PL_TT && bo->tbo.resource->mem_type != TTM_PL_VRAM) {
+ 		return ERR_PTR(-EBUSY);
+ 	}
+ #else

@@ -1,0 +1,35 @@
+From: Guanyi Chen <felixlinker02@gmail.com>
+Subject: [PATCH 2/3] amdgpu: pin DMA-buf to VRAM instead of GTT
+
+The upstream amdgpu driver pins DMA-buf exported buffers into GTT
+(system memory), causing NVMe DMA addresses to point to CPU memory
+instead of the GPU BAR. This defeats P2P DMA: data transits through
+system memory rather than going directly between NVMe and GPU VRAM.
+
+Pin to AMDGPU_GEM_DOMAIN_VRAM instead, and set
+AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED to ensure the buffer lands in
+visible VRAM (addressable via PCIe BAR).
+
+After this patch, NVMe DMA addresses point to the GPU BAR
+(e.g., 0x220xxxxxxxxx on MI210), enabling true PCIe P2P transfers.
+
+Signed-off-by: Guanyi Chen <felixlinker02@gmail.com>
+---
+ amd/amdgpu/amdgpu_dma_buf.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/amd/amdgpu/amdgpu_dma_buf.c b/amd/amdgpu/amdgpu_dma_buf.c
+index abcdef1..1234567 100644
+--- a/amd/amdgpu/amdgpu_dma_buf.c
++++ b/amd/amdgpu/amdgpu_dma_buf.c
+@@ -256,7 +256,9 @@
+ 	struct drm_gem_object *obj = attach->dmabuf->priv;
+ 	struct amdgpu_bo *bo = gem_to_amdgpu_bo(obj);
+ 
+-	return amdgpu_bo_pin(bo, AMDGPU_GEM_DOMAIN_GTT);
++	/* pin into visible VRAM for P2P DMA via PCIe BAR */
++	bo->flags |= AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
++	return amdgpu_bo_pin(bo, AMDGPU_GEM_DOMAIN_VRAM);
+ }
+ 
+ /**

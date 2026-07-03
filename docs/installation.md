@@ -33,7 +33,10 @@ The HIP backend implements AMD Infinity Storage (AIS) using the standard Linux D
 - IOMMU passthrough recommended: `iommu=pt` or `amd_iommu=off`
 
 **Driver notes:**
-The kernel-side code uses standard upstream DMA-buf APIs (`dma_buf_dynamic_attach`, `dma_buf_pin`, `dma_buf_map_attachment`). The userspace side uses `hsa_amd_portable_export_dmabuf_v2()` from the ROCm runtime. No vendor-specific amdgpu extensions are required beyond upstream `CONFIG_HSA_AMD_P2P` support.
+The kernel-side code uses standard upstream DMA-buf APIs (`dma_buf_dynamic_attach`, `dma_buf_pin`, `dma_buf_map_attachment`). The userspace side uses `hsa_amd_portable_export_dmabuf_v2()` from the ROCm runtime.
+
+**VRAM P2P patches (required):**
+The upstream amdgpu driver (DKMS 6.10.5) pins DMA-buf exports into GTT (system memory) by default, which prevents true P2P DMA between NVMe and GPU VRAM. Three patches to `amdgpu_dma_buf.c` are required to enable VRAM pinning. See [`patches/amdgpu/README.md`](../patches/amdgpu/README.md) for details and instructions.
 
 **Synchronization contract:**
 Buffers registered with `uGDSBufRegister()` must not be modified by the GPU (HIP kernel writes) while NVMe I/O is in flight on the same buffer. Concurrent GPU access during DMA can cause data corruption. This mirrors the NVIDIA GDS requirement.
